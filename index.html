@@ -1,0 +1,762 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>13F Dashboard</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root {
+    --bg: #0f1216;
+    --panel: #161a21;
+    --panel-2: #1c2128;
+    --line: #262d36;
+    --text: #e6e9ef;
+    --muted: #8a93a3;
+    --accent: #6aa9ff;
+    --green: #4cc38a;
+    --red: #f06a6a;
+    --yellow: #e3b341;
+    --blue: #4a9eff;
+    --purple: #b07cff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+  header.app {
+    padding: 18px 24px 0 24px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  header.app h1 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  header.app .sub {
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-top: 14px;
+    align-items: flex-end;
+    overflow-x: auto;
+  }
+  .tab {
+    position: relative;
+    padding: 9px 14px 9px 14px;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+    cursor: pointer;
+    color: var(--muted);
+    background: transparent;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    user-select: none;
+  }
+  .tab .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .tab[data-active="true"] {
+    color: var(--text);
+    background: var(--panel-2);
+    border-color: var(--line);
+    border-bottom-color: var(--panel-2);
+    transform: translateY(1px);
+  }
+  .tab:hover:not([data-active="true"]) {
+    color: var(--text);
+  }
+  .tab .close {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1;
+    padding: 0 4px;
+    border-radius: 3px;
+    cursor: pointer;
+    display: none;
+  }
+  .tab[data-active="true"] .close,
+  .tab:hover .close {
+    display: inline-block;
+  }
+  .tab .close:hover {
+    background: var(--line);
+    color: var(--red);
+  }
+  .tab-add {
+    padding: 9px 12px;
+    color: var(--muted);
+    cursor: pointer;
+    border-radius: 6px 6px 0 0;
+    user-select: none;
+  }
+  .tab-add:hover { color: var(--accent); background: var(--panel-2); }
+
+  .body {
+    padding: 22px 24px;
+  }
+
+  .filer-head {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 24px;
+    align-items: end;
+    margin-bottom: 18px;
+  }
+  .filer-head .title {
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+  .filer-head .fund {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 2px;
+  }
+
+  .stat-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .stat {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .stat .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .stat .v { font-size: 18px; font-weight: 600; margin-top: 4px; letter-spacing: -0.01em; }
+  .stat .delta { font-size: 11px; margin-top: 2px; color: var(--muted); }
+  .stat .delta.pos { color: var(--green); }
+  .stat .delta.neg { color: var(--red); }
+
+  .quarter-strip {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 18px;
+    overflow-x: auto;
+  }
+  .quarter {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 14px;
+    min-width: 180px;
+  }
+  .quarter .label { color: var(--muted); font-size: 11px; text-transform: uppercase; }
+  .quarter .val { font-size: 15px; font-weight: 600; margin-top: 2px; }
+  .quarter .ct { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .quarter[data-current="true"] {
+    border-color: var(--accent);
+  }
+
+  .toolbar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .toolbar input[type="search"] {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 12px;
+    width: 240px;
+    font-family: inherit;
+  }
+  .toolbar input[type="search"]:focus { outline: 1px solid var(--accent); }
+  .pill {
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--muted);
+    font-size: 11px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .pill[data-on="true"] {
+    color: var(--text);
+    border-color: var(--accent);
+    background: rgba(106,169,255,0.12);
+  }
+  .pill .ct { color: var(--muted); margin-left: 4px; }
+
+  table.holdings {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+    font-variant-numeric: tabular-nums;
+  }
+  table.holdings th {
+    text-align: left;
+    padding: 9px 12px;
+    background: var(--panel-2);
+    border-bottom: 1px solid var(--line);
+    color: var(--muted);
+    font-weight: 500;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+  }
+  table.holdings th .arrow {
+    display: inline-block;
+    width: 10px;
+    color: var(--accent);
+  }
+  table.holdings th.num { text-align: right; }
+  table.holdings td {
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle;
+  }
+  table.holdings td.num { text-align: right; }
+  table.holdings tr:last-child td { border-bottom: none; }
+  table.holdings tr:hover td { background: rgba(255,255,255,0.02); }
+  .badge {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+  }
+  .badge.NEW   { background: rgba(76,195,138,0.15); color: var(--green); }
+  .badge.ADD   { background: rgba(74,158,255,0.15); color: var(--blue); }
+  .badge.HOLD  { background: rgba(138,147,163,0.12); color: var(--muted); }
+  .badge.TRIM  { background: rgba(227,179,65,0.15); color: var(--yellow); }
+  .badge.SOLD  { background: rgba(240,106,106,0.15); color: var(--red); }
+  .pos { color: var(--green); }
+  .neg { color: var(--red); }
+  .muted { color: var(--muted); }
+
+  .empty {
+    text-align: center;
+    color: var(--muted);
+    padding: 48px 0;
+  }
+
+  /* Add-filer modal */
+  .modal-bg {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-bg[data-on="true"] { display: flex; }
+  .modal {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 22px;
+    width: 480px;
+    max-width: calc(100vw - 32px);
+  }
+  .modal h3 { margin: 0 0 14px 0; font-size: 16px; }
+  .modal label { display: block; font-size: 11px; color: var(--muted); text-transform: uppercase; margin-top: 12px; margin-bottom: 4px; }
+  .modal input {
+    width: 100%; padding: 8px 10px;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 6px;
+    color: var(--text); font-family: inherit; font-size: 13px;
+  }
+  .modal .row { display: flex; gap: 10px; margin-top: 18px; justify-content: flex-end; }
+  .modal button {
+    padding: 8px 14px; border-radius: 6px; border: 1px solid var(--line);
+    background: var(--panel-2); color: var(--text); cursor: pointer; font-family: inherit; font-size: 12px;
+  }
+  .modal button.primary { background: var(--accent); border-color: var(--accent); color: #07101e; font-weight: 600; }
+  .modal .hint { font-size: 11px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+  .modal .hint code { background: var(--bg); padding: 1px 5px; border-radius: 3px; color: var(--text); }
+
+  footer.app {
+    color: var(--muted);
+    padding: 16px 24px 28px 24px;
+    font-size: 11px;
+    border-top: 1px solid var(--line);
+    margin-top: 12px;
+  }
+  footer.app a { color: var(--accent); text-decoration: none; }
+  footer.app a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<header class="app">
+  <h1>13F Holdings Dashboard</h1>
+  <div class="sub">Source: SEC EDGAR Form 13F-HR &middot; <span id="generated"></span></div>
+  <div class="tabs" id="tabs"></div>
+</header>
+
+<div class="body" id="body"></div>
+
+<footer class="app">
+  Values reported on Form 13F-HR (long positions only; excludes shorts, cash, fixed-income, private holdings).
+  Total values are computed by summing the <code>value</code> field of all rows in the information table.
+  Re-run <code>python3 scripts/fetch_13f.py</code> after editing the FILERS list to refresh data.
+</footer>
+
+<script src="data/holdings.js"></script>
+
+<div class="modal-bg" id="addModal">
+  <div class="modal">
+    <h3>Add a 13F filer</h3>
+    <label>Display name</label>
+    <input id="m_name" placeholder="e.g. Stanley Druckenmiller">
+    <label>Fund / entity</label>
+    <input id="m_fund" placeholder="e.g. Duquesne Family Office LLC">
+    <label>CIK (numeric)</label>
+    <input id="m_cik" placeholder="e.g. 1536411">
+    <label>Most recent 3 accession numbers, newest first (comma-separated)</label>
+    <input id="m_acc" placeholder="0001234567-26-000001, 0001234567-26-000002, 0001234567-25-000003">
+    <div class="hint">
+      Look up filings on <a href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany" target="_blank">EDGAR</a>.
+      Submitting adds an entry to <code>scripts/fetch_13f.py</code>'s FILERS list (you re-run it to pull data).
+      Until then, the tab is staged but data won't load.
+    </div>
+    <div class="row">
+      <button onclick="closeAddModal()">Cancel</button>
+      <button class="primary" onclick="copyFilerSnippet()">Copy Python snippet</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const FMT = {
+  money(v) {
+    if (v === null || v === undefined || isNaN(v)) return '—';
+    const sign = v < 0 ? '-' : '';
+    const a = Math.abs(v);
+    if (a >= 1e12) return sign + '$' + (a/1e12).toFixed(2) + 'T';
+    if (a >= 1e9)  return sign + '$' + (a/1e9).toFixed(2)  + 'B';
+    if (a >= 1e6)  return sign + '$' + (a/1e6).toFixed(2)  + 'M';
+    if (a >= 1e3)  return sign + '$' + (a/1e3).toFixed(1)  + 'K';
+    return sign + '$' + a.toFixed(0);
+  },
+  shares(v) {
+    if (v === null || v === undefined || isNaN(v)) return '—';
+    return v.toLocaleString();
+  },
+  pct(v) {
+    if (v === null || v === undefined || isNaN(v)) return '—';
+    return (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
+  },
+  pctSigned(v) {
+    if (v === null || v === undefined || isNaN(v)) return '';
+    return (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
+  },
+};
+
+let DATA = null;
+let activeFilerKey = null;
+let hiddenKeys = new Set();
+let renameMap = {};
+const STATE_KEY = '13fDashboardState';
+
+function loadState() {
+  try {
+    const s = JSON.parse(localStorage.getItem(STATE_KEY) || '{}');
+    hiddenKeys = new Set(s.hidden || []);
+    renameMap = s.rename || {};
+    activeFilerKey = s.active || null;
+  } catch (e) {}
+}
+function saveState() {
+  localStorage.setItem(STATE_KEY, JSON.stringify({
+    hidden: [...hiddenKeys],
+    rename: renameMap,
+    active: activeFilerKey,
+  }));
+}
+
+function visibleFilers() {
+  return DATA.filers.filter(f => !hiddenKeys.has(f.key));
+}
+
+function renderTabs() {
+  const tabs = document.getElementById('tabs');
+  tabs.innerHTML = '';
+  const filers = visibleFilers();
+
+  for (const f of filers) {
+    const tab = document.createElement('div');
+    tab.className = 'tab';
+    tab.dataset.active = String(f.key === activeFilerKey);
+    const label = renameMap[f.key] || f.name;
+    tab.innerHTML =
+      `<span class="dot" style="background:${f.color}"></span>` +
+      `<span class="label">${escapeHtml(label)}</span>` +
+      `<span class="close" title="Hide tab">×</span>`;
+    tab.onclick = (e) => {
+      if (e.target.classList.contains('close')) {
+        if (confirm(`Hide "${label}" from view?\n(Tab can be restored from the + menu.)`)) {
+          hiddenKeys.add(f.key);
+          if (activeFilerKey === f.key) activeFilerKey = visibleFilers()[0]?.key || null;
+          saveState();
+          render();
+        }
+        return;
+      }
+      activeFilerKey = f.key;
+      saveState();
+      render();
+    };
+    tab.querySelector('.label').ondblclick = (e) => {
+      e.stopPropagation();
+      const next = prompt(`Rename "${label}" to:`, label);
+      if (next !== null) {
+        if (next.trim() === '' || next.trim() === f.name) {
+          delete renameMap[f.key];
+        } else {
+          renameMap[f.key] = next.trim();
+        }
+        saveState();
+        render();
+      }
+    };
+    tabs.appendChild(tab);
+  }
+
+  const add = document.createElement('div');
+  add.className = 'tab-add';
+  const hiddenCount = hiddenKeys.size;
+  add.textContent = hiddenCount ? `+ Add (${hiddenCount} hidden)` : '+ Add';
+  add.title = 'Add a new filer or restore a hidden one';
+  add.onclick = openAddMenu;
+  tabs.appendChild(add);
+}
+
+function openAddMenu() {
+  const hidden = DATA.filers.filter(f => hiddenKeys.has(f.key));
+  if (hidden.length === 0) {
+    openAddModal();
+    return;
+  }
+  const labels = hidden.map((f, i) => `${i+1}. ${renameMap[f.key] || f.name}`).join('\n');
+  const choice = prompt(
+    `Restore a hidden tab (enter number) or type "new" to add a new filer:\n\n${labels}\n\n0. (new filer)`
+  );
+  if (choice === null) return;
+  if (choice.toLowerCase() === 'new' || choice === '0') {
+    openAddModal();
+    return;
+  }
+  const idx = parseInt(choice, 10) - 1;
+  if (idx >= 0 && idx < hidden.length) {
+    hiddenKeys.delete(hidden[idx].key);
+    activeFilerKey = hidden[idx].key;
+    saveState();
+    render();
+  }
+}
+
+function openAddModal() {
+  document.getElementById('addModal').dataset.on = 'true';
+}
+function closeAddModal() {
+  document.getElementById('addModal').dataset.on = 'false';
+}
+function copyFilerSnippet() {
+  const name = document.getElementById('m_name').value.trim();
+  const fund = document.getElementById('m_fund').value.trim();
+  const cik  = document.getElementById('m_cik').value.trim();
+  const acc  = document.getElementById('m_acc').value.split(',').map(s => s.trim()).filter(Boolean);
+  if (!name || !cik || acc.length === 0) {
+    alert('Please fill in name, CIK, and at least one accession number.');
+    return;
+  }
+  const key = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+  const accLines = acc.map(a => `        "${a}",`).join('\n');
+  const snippet =
+`    {
+        "key": "${key}",
+        "name": "${name}",
+        "fund": "${fund}",
+        "cik": "${cik}",
+        "color": "#9b59b6",
+        "accessions": [
+${accLines}
+        ],
+    },`;
+  navigator.clipboard.writeText(snippet).then(() => {
+    alert('Snippet copied to clipboard.\n\nPaste into the FILERS list in scripts/fetch_13f.py, then run:\n\npython3 scripts/fetch_13f.py\n\nReload this page to see the new filer.');
+    closeAddModal();
+  }, () => {
+    prompt('Copy this snippet into scripts/fetch_13f.py FILERS:', snippet);
+    closeAddModal();
+  });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ---- Per-filer state for sort/filter/search -----------------------------
+const viewState = {};   // keyed by filer.key
+function vs(key) {
+  if (!viewState[key]) {
+    viewState[key] = {
+      sortCol: 'value',
+      sortDir: 'desc',
+      filter: 'ALL',
+      search: '',
+    };
+  }
+  return viewState[key];
+}
+
+function renderFiler(filer) {
+  const body = document.getElementById('body');
+  const state = vs(filer.key);
+
+  const cur = filer.quarters[0] || {};
+  const prev = filer.quarters[1] || {};
+  const prev2 = filer.quarters[2] || {};
+
+  const valueDelta = cur.total_value && prev.total_value
+    ? (cur.total_value - prev.total_value) / prev.total_value * 100 : null;
+  const countDelta = cur.holdings_count != null && prev.holdings_count != null
+    ? cur.holdings_count - prev.holdings_count : null;
+
+  const counts = { NEW: 0, ADD: 0, HOLD: 0, TRIM: 0, SOLD: 0 };
+  for (const h of filer.current_holdings) counts[h.status]++;
+
+  const head = `
+    <div class="filer-head">
+      <div>
+        <div class="title">${escapeHtml(renameMap[filer.key] || filer.name)} <span style="color:${filer.color}">●</span></div>
+        <div class="fund">${escapeHtml(filer.fund)} &middot; CIK ${filer.cik} &middot; <a href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${filer.cik}&type=13F-HR&dateb=&owner=include&count=10" target="_blank" style="color:var(--accent);text-decoration:none">EDGAR ↗</a></div>
+      </div>
+      <div></div>
+    </div>
+
+    <div class="stat-strip">
+      <div class="stat">
+        <div class="k">Reported Value (${cur.label || '—'})</div>
+        <div class="v">${FMT.money(cur.total_value)}</div>
+        <div class="delta ${valueDelta == null ? '' : (valueDelta >= 0 ? 'pos' : 'neg')}">${valueDelta == null ? '' : FMT.pctSigned(valueDelta) + ' QoQ'}</div>
+      </div>
+      <div class="stat">
+        <div class="k">Holdings (raw rows)</div>
+        <div class="v">${cur.holdings_count ?? '—'}</div>
+        <div class="delta ${countDelta == null ? '' : (countDelta >= 0 ? 'pos' : 'neg')}">${countDelta == null ? '' : (countDelta >= 0 ? '+' : '') + countDelta + ' vs prior'}</div>
+      </div>
+      <div class="stat">
+        <div class="k">New positions</div>
+        <div class="v pos">${counts.NEW}</div>
+      </div>
+      <div class="stat">
+        <div class="k">Sold out</div>
+        <div class="v neg">${counts.SOLD}</div>
+      </div>
+      <div class="stat">
+        <div class="k">Added to</div>
+        <div class="v" style="color:var(--blue)">${counts.ADD}</div>
+      </div>
+      <div class="stat">
+        <div class="k">Trimmed</div>
+        <div class="v" style="color:var(--yellow)">${counts.TRIM}</div>
+      </div>
+    </div>
+
+    <div class="quarter-strip">
+      ${filer.quarters.map((q, i) => `
+        <div class="quarter" data-current="${i === 0}">
+          <div class="label">${q.label || ''} ${i === 0 ? '· latest' : ''}</div>
+          <div class="val">${FMT.money(q.total_value)}</div>
+          <div class="ct">${q.holdings_count ?? '—'} rows · period ${q.period || ''}</div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="toolbar">
+      <input type="search" placeholder="Search issuer or CUSIP..." id="search_${filer.key}" value="${escapeHtml(state.search)}">
+      <span class="pill" data-on="${state.filter==='ALL'}"  data-filter="ALL">All <span class="ct">${filer.current_holdings.length}</span></span>
+      <span class="pill" data-on="${state.filter==='NEW'}"  data-filter="NEW">New <span class="ct">${counts.NEW}</span></span>
+      <span class="pill" data-on="${state.filter==='ADD'}"  data-filter="ADD">Added <span class="ct">${counts.ADD}</span></span>
+      <span class="pill" data-on="${state.filter==='HOLD'}" data-filter="HOLD">Hold <span class="ct">${counts.HOLD}</span></span>
+      <span class="pill" data-on="${state.filter==='TRIM'}" data-filter="TRIM">Trimmed <span class="ct">${counts.TRIM}</span></span>
+      <span class="pill" data-on="${state.filter==='SOLD'}" data-filter="SOLD">Sold <span class="ct">${counts.SOLD}</span></span>
+    </div>
+
+    <div id="table_${filer.key}"></div>
+  `;
+  body.innerHTML = head;
+
+  document.getElementById(`search_${filer.key}`).addEventListener('input', (e) => {
+    state.search = e.target.value;
+    saveState();
+    renderTable(filer);
+  });
+  body.querySelectorAll('.pill[data-filter]').forEach(p => {
+    p.onclick = () => {
+      state.filter = p.dataset.filter;
+      saveState();
+      renderFiler(filer);
+    };
+  });
+
+  renderTable(filer);
+}
+
+const COLUMNS = [
+  { key: 'issuer',          label: 'Issuer',         num: false },
+  { key: 'cusip',           label: 'CUSIP',          num: false },
+  { key: 'class',           label: 'Class',          num: false },
+  { key: 'shares',          label: 'Shares',         num: true  },
+  { key: 'value',           label: 'Value (USD)',    num: true  },
+  { key: 'pct_portfolio',   label: '% Port.',        num: true  },
+  { key: 'delta_shares',    label: 'Δ Shares',       num: true  },
+  { key: 'delta_shares_pct',label: 'Δ %',            num: true  },
+  { key: 'prev2_shares',    label: '2Q Ago Shares',  num: true  },
+  { key: 'status',          label: 'Status',         num: false },
+];
+
+function renderTable(filer) {
+  const state = vs(filer.key);
+  const totalValue = filer.current_holdings.reduce((s, h) => s + (h.value || 0), 0) || 1;
+
+  // Augment with % of portfolio
+  const enriched = filer.current_holdings.map(h => ({
+    ...h,
+    pct_portfolio: h.value ? (h.value / totalValue * 100) : 0,
+  }));
+
+  let rows = enriched;
+  if (state.filter !== 'ALL') {
+    rows = rows.filter(h => h.status === state.filter);
+  }
+  if (state.search) {
+    const q = state.search.toLowerCase();
+    rows = rows.filter(h =>
+      (h.issuer || '').toLowerCase().includes(q) ||
+      (h.cusip || '').toLowerCase().includes(q)
+    );
+  }
+
+  rows.sort((a, b) => {
+    let av = a[state.sortCol];
+    let bv = b[state.sortCol];
+    if (av == null) av = state.sortDir === 'asc' ? Infinity : -Infinity;
+    if (bv == null) bv = state.sortDir === 'asc' ? Infinity : -Infinity;
+    if (typeof av === 'string') {
+      return state.sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+    }
+    return state.sortDir === 'asc' ? av - bv : bv - av;
+  });
+
+  const container = document.getElementById(`table_${filer.key}`);
+  if (rows.length === 0) {
+    container.innerHTML = '<div class="empty">No holdings match the current filter.</div>';
+    return;
+  }
+
+  const ths = COLUMNS.map(c => {
+    const arrow = c.key === state.sortCol ? (state.sortDir === 'asc' ? '▲' : '▼') : '';
+    return `<th class="${c.num ? 'num' : ''}" data-col="${c.key}"><span class="arrow">${arrow}</span> ${c.label}</th>`;
+  }).join('');
+
+  const trs = rows.map(h => `
+    <tr>
+      <td>${escapeHtml(h.issuer || '')}${h.put_call ? ` <span class="muted">[${h.put_call}]</span>` : ''}</td>
+      <td class="muted">${escapeHtml(h.cusip || '')}</td>
+      <td class="muted">${escapeHtml(h.class || '')}</td>
+      <td class="num">${FMT.shares(h.shares)}</td>
+      <td class="num">${FMT.money(h.value)}</td>
+      <td class="num">${h.pct_portfolio.toFixed(2)}%</td>
+      <td class="num ${h.delta_shares > 0 ? 'pos' : h.delta_shares < 0 ? 'neg' : 'muted'}">${h.delta_shares ? (h.delta_shares > 0 ? '+' : '') + h.delta_shares.toLocaleString() : '—'}</td>
+      <td class="num ${h.delta_shares_pct > 0 ? 'pos' : h.delta_shares_pct < 0 ? 'neg' : 'muted'}">${h.delta_shares_pct == null ? '—' : FMT.pctSigned(h.delta_shares_pct)}</td>
+      <td class="num muted">${FMT.shares(h.prev2_shares)}</td>
+      <td><span class="badge ${h.status}">${h.status}</span></td>
+    </tr>
+  `).join('');
+
+  container.innerHTML = `<table class="holdings"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
+  container.querySelectorAll('th[data-col]').forEach(th => {
+    th.onclick = () => {
+      const col = th.dataset.col;
+      if (state.sortCol === col) {
+        state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        state.sortCol = col;
+        state.sortDir = COLUMNS.find(c => c.key === col)?.num ? 'desc' : 'asc';
+      }
+      renderTable(filer);
+    };
+  });
+}
+
+function render() {
+  if (!DATA || !DATA.filers.length) {
+    document.getElementById('body').innerHTML = '<div class="empty">No filers configured. Edit FILERS in scripts/fetch_13f.py.</div>';
+    return;
+  }
+  if (!activeFilerKey || !DATA.filers.find(f => f.key === activeFilerKey) || hiddenKeys.has(activeFilerKey)) {
+    activeFilerKey = visibleFilers()[0]?.key || null;
+  }
+  renderTabs();
+  if (activeFilerKey) {
+    const filer = DATA.filers.find(f => f.key === activeFilerKey);
+    if (filer) renderFiler(filer);
+  } else {
+    document.getElementById('body').innerHTML = `
+      <div class="empty">
+        All tabs are hidden. Click <strong>+ Add</strong> in the tab strip to restore one.
+      </div>`;
+  }
+}
+
+async function boot() {
+  loadState();
+  // Prefer inlined data (works via file://), fall back to fetch (works via http://).
+  if (window.HOLDINGS_DATA) {
+    DATA = window.HOLDINGS_DATA;
+  } else {
+    try {
+      const r = await fetch('data/holdings.json', { cache: 'no-cache' });
+      DATA = await r.json();
+    } catch (e) {
+      document.getElementById('body').innerHTML =
+        '<div class="empty">Could not load 13F data.<br>Run <code>python3 scripts/fetch_13f.py</code> from the project root, then reload this page.</div>';
+      return;
+    }
+  }
+  const d = new Date(DATA.generated_at);
+  document.getElementById('generated').textContent =
+    `data generated ${d.toUTCString()}`;
+  render();
+}
+boot();
+</script>
+</body>
+</html>
