@@ -597,6 +597,9 @@ function renderFiler(filer) {
       </div>
     </div>
 
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em;">
+      Quarter view <span style="color:var(--accent);text-transform:none;letter-spacing:0;">— click a card to switch the table below to that quarter's holdings</span>
+    </div>
     <div class="quarter-strip">
       ${filer.quarters.map((q, i) => `
         <div class="quarter" data-active="${i === state.activeQuarter}" data-q-idx="${i}" title="Click to view ${q.label}'s holdings">

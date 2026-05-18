@@ -42,8 +42,10 @@ st.markdown(
 )
 
 
-@st.cache_data(ttl=3600)
 def load_assets() -> tuple[str, dict]:
+    # No cache: file reads are fast and caching here once burned us by serving
+    # a stale HTML for an hour after a deploy. The container is ephemeral
+    # anyway; re-reading per request is negligible.
     html = HTML_PATH.read_text()
     data = json.loads(DATA_PATH.read_text())
     return html, data
@@ -73,6 +75,8 @@ def main() -> None:
         st.sidebar.caption(f"Data generated {generated} ({age_hours:.0f}h ago)")
     except Exception:
         st.sidebar.caption(f"Data generated {generated}")
+    # Build marker — if you see this commit in the sidebar, you're on the latest deploy.
+    st.sidebar.caption("Build: clickable-quarters")
     st.sidebar.caption("Refresh data locally with `python scripts/fetch_13f.py` and push.")
 
 
