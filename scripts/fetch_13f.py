@@ -23,6 +23,12 @@ RAW = ROOT / "data" / "raw"
 OUT = ROOT / "data" / "holdings.json"
 OUT_JS = ROOT / "data" / "holdings.js"
 
+# DISPLAY_QUARTERS controls how many quarters are exposed as clickable tabs in
+# the UI. We fetch DISPLAY_QUARTERS + 2 accessions per filer so each displayed
+# quarter can compute QoQ deltas and "2Q ago" share comparisons against the
+# next two older quarters.
+DISPLAY_QUARTERS = 3
+
 FILERS = [
     {
         "key": "buffett",
@@ -30,11 +36,13 @@ FILERS = [
         "fund": "Berkshire Hathaway Inc.",
         "cik": "1067983",
         "color": "#c0392b",
-        # Most recent first: Q1 2026, Q4 2025, Q3 2025
+        # Most recent first: Q1 26, Q4 25, Q3 25, Q2 25, Q1 25
         "accessions": [
             "0001193125-26-226661",
             "0001193125-26-054580",
             "0001193125-25-282901",
+            "0000950123-25-008343",
+            "0000950123-25-005701",
         ],
     },
     {
@@ -47,6 +55,8 @@ FILERS = [
             "0001172661-26-002336",
             "0001172661-26-001091",
             "0001172661-25-005039",
+            "0001172661-25-003509",
+            "0001172661-25-002315",
         ],
     },
     {
@@ -59,6 +69,8 @@ FILERS = [
             "0002045724-26-000008",
             "0002045724-26-000002",
             "0002045724-25-000008",
+            "0002045724-25-000006",
+            "0002045724-25-000002",
         ],
     },
 ]
@@ -257,7 +269,7 @@ def run() -> None:
 
     for f in FILERS:
         print(f"== {f['name']} (CIK {f['cik']}) ==")
-        quarters = []
+        quarters_raw = []
         for acc in f["accessions"]:
             print(f"  fetching {acc} ...")
             filing = fetch_filing(f["cik"], acc)
@@ -265,27 +277,38 @@ def run() -> None:
             rows = parse_infotable(filing["info_xml"])
             holdings = consolidate(rows)
             total_value = sum(h["value"] for h in holdings.values())
-            quarters.append({
+            quarters_raw.append({
                 "accession": acc,
                 "period": meta.get("period"),
-                "filer_name": meta.get("filer_name"),
                 "holdings_count": meta.get("holdings_count"),
-                "table_value_total": meta.get("table_value_total"),
-                "computed_total_value": total_value,
+                "total_value": total_value,
                 "holdings": holdings,
             })
             time.sleep(0.15)  # polite to EDGAR
 
-        current_with_changes = compute_changes(
-            quarters[0]["holdings"],
-            quarters[1]["holdings"] if len(quarters) > 1 else None,
-            quarters[2]["holdings"] if len(quarters) > 2 else None,
-        )
-        prior_with_changes = compute_changes(
-            quarters[1]["holdings"] if len(quarters) > 1 else {},
-            quarters[2]["holdings"] if len(quarters) > 2 else None,
-            None,
-        ) if len(quarters) > 1 else []
+        # Build one entry per displayed quarter with QoQ deltas vs the next-older
+        # quarter, and a "2Q ago" share reference vs the quarter after that.
+        displayed = []
+        for i in range(min(DISPLAY_QUARTERS, len(quarters_raw))):
+            curr = quarters_raw[i]
+            prior = quarters_raw[i + 1] if i + 1 < len(quarters_raw) else None
+            prior2 = quarters_raw[i + 2] if i + 2 < len(quarters_raw) else None
+            holdings_with_deltas = compute_changes(
+                curr["holdings"],
+                prior["holdings"] if prior else None,
+                prior2["holdings"] if prior2 else None,
+            )
+            displayed.append({
+                "label": _quarter_label(curr["period"]),
+                "period": curr["period"],
+                "accession": curr["accession"],
+                "raw_holdings_count": curr["holdings_count"],
+                "total_value": curr["total_value"],
+                "prior_total_value": prior["total_value"] if prior else None,
+                "prior_label": _quarter_label(prior["period"]) if prior else None,
+                "has_deltas": prior is not None,
+                "holdings": holdings_with_deltas,
+            })
 
         out["filers"].append({
             "key": f["key"],
@@ -293,18 +316,7 @@ def run() -> None:
             "fund": f["fund"],
             "cik": f["cik"],
             "color": f["color"],
-            "quarters": [
-                {
-                    "label": _quarter_label(quarters[i]["period"]),
-                    "period": quarters[i]["period"],
-                    "accession": quarters[i]["accession"],
-                    "holdings_count": quarters[i]["holdings_count"],
-                    "total_value": quarters[i]["computed_total_value"],
-                }
-                for i in range(len(quarters))
-            ],
-            "current_holdings": current_with_changes,
-            "prior_holdings": prior_with_changes,
+            "quarters": displayed,
         })
 
     OUT.parent.mkdir(parents=True, exist_ok=True)

@@ -162,13 +162,19 @@
     border-radius: 8px;
     padding: 10px 14px;
     min-width: 180px;
+    cursor: pointer;
+    transition: border-color 0.12s, background 0.12s;
+    user-select: none;
   }
+  .quarter:hover { border-color: var(--muted); }
   .quarter .label { color: var(--muted); font-size: 11px; text-transform: uppercase; }
   .quarter .val { font-size: 15px; font-weight: 600; margin-top: 2px; }
   .quarter .ct { font-size: 11px; color: var(--muted); margin-top: 1px; }
-  .quarter[data-current="true"] {
+  .quarter[data-active="true"] {
     border-color: var(--accent);
+    background: rgba(106,169,255,0.08);
   }
+  .quarter[data-active="true"] .label { color: var(--accent); }
 
   .toolbar {
     display: flex;
@@ -530,6 +536,7 @@ function vs(key) {
       sortDir: 'desc',
       filter: 'ALL',
       search: '',
+      activeQuarter: 0,   // 0 = most recent
     };
   }
   return viewState[key];
@@ -538,18 +545,19 @@ function vs(key) {
 function renderFiler(filer) {
   const body = document.getElementById('body');
   const state = vs(filer.key);
+  if (state.activeQuarter >= filer.quarters.length) state.activeQuarter = 0;
 
-  const cur = filer.quarters[0] || {};
-  const prev = filer.quarters[1] || {};
-  const prev2 = filer.quarters[2] || {};
+  const active = filer.quarters[state.activeQuarter] || {};
+  const priorQ = filer.quarters[state.activeQuarter + 1];  // for QoQ delta vs displayed older quarter
 
-  const valueDelta = cur.total_value && prev.total_value
-    ? (cur.total_value - prev.total_value) / prev.total_value * 100 : null;
-  const countDelta = cur.holdings_count != null && prev.holdings_count != null
-    ? cur.holdings_count - prev.holdings_count : null;
+  const valueDelta = active.total_value && active.prior_total_value
+    ? (active.total_value - active.prior_total_value) / active.prior_total_value * 100 : null;
+  const countDelta = priorQ && active.raw_holdings_count != null && priorQ.raw_holdings_count != null
+    ? active.raw_holdings_count - priorQ.raw_holdings_count : null;
 
+  const holdings = active.holdings || [];
   const counts = { NEW: 0, ADD: 0, HOLD: 0, TRIM: 0, SOLD: 0 };
-  for (const h of filer.current_holdings) counts[h.status]++;
+  for (const h of holdings) counts[h.status]++;
 
   const head = `
     <div class="filer-head">
@@ -562,13 +570,13 @@ function renderFiler(filer) {
 
     <div class="stat-strip">
       <div class="stat">
-        <div class="k">Reported Value (${cur.label || '—'})</div>
-        <div class="v">${FMT.money(cur.total_value)}</div>
-        <div class="delta ${valueDelta == null ? '' : (valueDelta >= 0 ? 'pos' : 'neg')}">${valueDelta == null ? '' : FMT.pctSigned(valueDelta) + ' QoQ'}</div>
+        <div class="k">Reported Value (${active.label || '—'})</div>
+        <div class="v">${FMT.money(active.total_value)}</div>
+        <div class="delta ${valueDelta == null ? '' : (valueDelta >= 0 ? 'pos' : 'neg')}">${valueDelta == null ? '' : FMT.pctSigned(valueDelta) + ' vs ' + (active.prior_label || 'prior')}</div>
       </div>
       <div class="stat">
         <div class="k">Holdings (raw rows)</div>
-        <div class="v">${cur.holdings_count ?? '—'}</div>
+        <div class="v">${active.raw_holdings_count ?? '—'}</div>
         <div class="delta ${countDelta == null ? '' : (countDelta >= 0 ? 'pos' : 'neg')}">${countDelta == null ? '' : (countDelta >= 0 ? '+' : '') + countDelta + ' vs prior'}</div>
       </div>
       <div class="stat">
@@ -591,17 +599,17 @@ function renderFiler(filer) {
 
     <div class="quarter-strip">
       ${filer.quarters.map((q, i) => `
-        <div class="quarter" data-current="${i === 0}">
-          <div class="label">${q.label || ''} ${i === 0 ? '· latest' : ''}</div>
+        <div class="quarter" data-active="${i === state.activeQuarter}" data-q-idx="${i}" title="Click to view ${q.label}'s holdings">
+          <div class="label">${q.label || ''}${i === 0 ? ' · latest' : ''}${i === state.activeQuarter ? ' · viewing' : ''}</div>
           <div class="val">${FMT.money(q.total_value)}</div>
-          <div class="ct">${q.holdings_count ?? '—'} rows · period ${q.period || ''}</div>
+          <div class="ct">${q.raw_holdings_count ?? '—'} rows · period ${q.period || ''}</div>
         </div>
       `).join('')}
     </div>
 
     <div class="toolbar">
       <input type="search" placeholder="Search issuer or CUSIP..." id="search_${filer.key}" value="${escapeHtml(state.search)}">
-      <span class="pill" data-on="${state.filter==='ALL'}"  data-filter="ALL">All <span class="ct">${filer.current_holdings.length}</span></span>
+      <span class="pill" data-on="${state.filter==='ALL'}"  data-filter="ALL">All <span class="ct">${holdings.length}</span></span>
       <span class="pill" data-on="${state.filter==='NEW'}"  data-filter="NEW">New <span class="ct">${counts.NEW}</span></span>
       <span class="pill" data-on="${state.filter==='ADD'}"  data-filter="ADD">Added <span class="ct">${counts.ADD}</span></span>
       <span class="pill" data-on="${state.filter==='HOLD'}" data-filter="HOLD">Hold <span class="ct">${counts.HOLD}</span></span>
@@ -625,6 +633,16 @@ function renderFiler(filer) {
       renderFiler(filer);
     };
   });
+  body.querySelectorAll('.quarter[data-q-idx]').forEach(card => {
+    card.onclick = () => {
+      const idx = parseInt(card.dataset.qIdx, 10);
+      if (idx === state.activeQuarter) return;
+      state.activeQuarter = idx;
+      state.filter = 'ALL';   // reset filter when switching quarters
+      saveState();
+      renderFiler(filer);
+    };
+  });
 
   renderTable(filer);
 }
@@ -644,10 +662,12 @@ const COLUMNS = [
 
 function renderTable(filer) {
   const state = vs(filer.key);
-  const totalValue = filer.current_holdings.reduce((s, h) => s + (h.value || 0), 0) || 1;
+  const active = filer.quarters[state.activeQuarter] || { holdings: [] };
+  const holdings = active.holdings || [];
+  const totalValue = holdings.reduce((s, h) => s + (h.value || 0), 0) || 1;
 
   // Augment with % of portfolio
-  const enriched = filer.current_holdings.map(h => ({
+  const enriched = holdings.map(h => ({
     ...h,
     pct_portfolio: h.value ? (h.value / totalValue * 100) : 0,
   }));
